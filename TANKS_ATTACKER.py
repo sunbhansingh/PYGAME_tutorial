@@ -10,6 +10,7 @@ light_yellow=(200,200,0)
 black=(0,0,0)
 red=(200,0,0)
 cyan=(0,255,255)
+light_cyan=(0,220,220)
 ground_height=35
 light_red=(255,0,0)
 green=(34,175,40)
@@ -19,6 +20,8 @@ display_length=800
 tank_height=20
 tank_width=40
 turret_width=5
+vs_player=pygame.image.load('blue_img.jpg')
+losing_game=pygame.image.load('losing_game.png')
 grass_image=pygame.image.load('grass.jpg')
 back_image=pygame.image.load('wallpaper.jpg')
 fire_sound = pygame.mixer.Sound("shot.wav")
@@ -57,7 +60,7 @@ def button(msg,box_x,box_y,box_width,box_height,size,passive_color,active_color,
         text_to_box(msg,box_x,box_y,box_width,box_height,size,black)
         if click[0]==1 and action!=None:
             if action=="Play":    
-                gameloop()
+                choosing_player_enemy()
             if action=="Control":
                 controls_menu()
             if action=="Quit":
@@ -65,6 +68,10 @@ def button(msg,box_x,box_y,box_width,box_height,size,passive_color,active_color,
                 quit()
             if action=="Main":
                 game_start_screen()
+            if action=="VS_PLAYER":
+                gameloop_player()
+            if action=="VS_ENEMY":
+                gameloop()
     else:
         pygame.draw.rect(gameDisplay,passive_color,(box_x,box_y,box_width,box_height))
         text_to_box(msg,box_x,box_y,box_width,box_height,size,black)
@@ -74,6 +81,8 @@ def text_to_box(msg,box_x,box_y,box_width,box_height,size,color):
     text_rect.center=(int(box_x+box_width/2),int(box_y+box_height/2))
     gameDisplay.blit(screen_text,text_rect)
 def pause():
+    pygame.mixer.music.stop()
+     
     p=True
     while p:
         #gameDisplay.fill(green)
@@ -112,12 +121,14 @@ def game_start_screen():
             button("Quit",550,500,100,50,small_font,red,light_red,action="Quit")      
             pygame.display.update()
             clock.tick(50)            
-def game_over_2():
+def game_over_2(WHO_WON):
     pygame.mixer.music.stop()
     gameDisplay.fill(white)
+     
+    #gameDisplay.blit(losing_game,[0,0])
     flag=True
     message_to_screen("YOU LOSE",green,-50,medium_font)
-    message_to_screen("Enemy fucked u", red, 0, small_font)
+    message_to_screen(str(str(WHO_WON)+"fucked u"), red, 0, small_font)
     pygame.display.update()
     while flag:
         for event in pygame.event.get():
@@ -196,7 +207,10 @@ def gun_fire(xy,gun_power,turPos,fire_power,barrier_x,barrier_y,barrier_width,ba
                 pygame.quit()
                 quit()
         pygame.draw.circle(gameDisplay, green, (changing_coordinates[0],changing_coordinates[1]),5)
-        changing_coordinates[0] -= (12 - turPos)*2
+        if tank=="self":
+            changing_coordinates[0] -= (12 - turPos)*2
+        elif tank=="PLAYER_2":
+            changing_coordinates[0]+=(12-turPos)*2
         # y = x**2
         changing_coordinates[1] += int((((changing_coordinates[0]-xy[0])*(0.015/(fire_power/50))/(gun_power/50))**2) - (turPos+turPos/(12-turPos)))
         check1=(barrier_x+barrier_width>=changing_coordinates[0])
@@ -286,6 +300,20 @@ def health_bar(player_health,x,y):
     pygame.draw.rect(gameDisplay,color,(x,y,player_health,25))
 def barrier(barrier_x,barrier_y,barrier_width,barrier_height,color):
     pygame.draw.rect(gameDisplay,color,(barrier_x,barrier_y,barrier_width,barrier_height))
+def choosing_player_enemy():
+    hold_screen=True
+    while hold_screen:
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                pygame.quit()
+                quit()
+            gameDisplay.fill(cyan)    
+            
+            button("VS PLAYER",350,200,150,50,small_font,cyan,light_cyan,action="VS_PLAYER")
+            button("VS ENEMY",350,300,150,50,small_font,cyan,light_cyan,action="VS_ENEMY")   
+            pygame.display.update()    
+            clock.tick(30)
+        
 def gameloop():
     pygame.mixer.music.stop()
     pygame.mixer.music.load("ingame.wav")
@@ -344,6 +372,9 @@ def gameloop():
                     turret_pos=-1
                 elif event.key ==pygame.K_p:
                     pause()
+                    pygame.mixer.music.load("ingame.wav")
+                    pygame.mixer.music.play(-1)
+                                        
                 elif event.key==pygame.K_SPACE:
                     enemy_health=gun_fire(starting_fire_coordinates,80,final_turret_pos,fire_power,barrier_x,barrier_y,barrier_width,barrier_height,"self",main_tank_x,enemy_main_tank_x,enemy_health)
                     player_health=enemy_gun_fire(enemy_starting_fire_coordinates,80,enemy_final_turret_pos,barrier_x,barrier_y,barrier_width,barrier_height,"enemy",main_tank_x,player_health)
@@ -378,7 +409,7 @@ def gameloop():
                 if event.key==pygame.K_a or event.key==pygame.K_d:
                     power=0
         if player_health<1:
-            game_over_2()
+            game_over_2("ENEMY")
         elif enemy_health<1:
             player_win()
         fire_power+=power
@@ -408,4 +439,166 @@ def gameloop():
         clock.tick(FPS)
     pygame.quit()
     quit()
+def gameloop_player():
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load("ingame.wav")
+    pygame.mixer.music.play(-1)
+    tank_move=0
+    barrier_width=40
+    player_health=100
+    enemy_health=100
+    barrier_x=random.randrange(int(.20*display_length),int(.60*display_length))
+    barrier_y=random.randrange(int(.5*display_height),int(.8*display_height))
+    fire_power=50
+    final_turret_pos=0
+    enemy_final_turret_pos=0
+    enemy_turret_pos=0
+    enemy_tank_move=0
+    turret_pos=0
+    FPS=15
+    power=0
+    fire_power=50
+    final_tank_move=0
+    main_tank_x=(0.9*display_length)
+    main_tank_y=(0.9*display_height)
+    enemy_main_tank_x=(0.1*display_length)
+    enemy_main_tank_y=(0.9*display_height)
+    gameexit=False
+    game_over=False
+    while not gameexit:
+        
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                gameexit=True
+            if event.type==pygame.KEYDOWN:
+                if event.key==pygame.K_LEFT :
+                    tank_move=-5
+                elif event.key==pygame.K_j:
+                    power=1
+                elif event.key==pygame.K_l:
+                    power=-1
+                elif event.key==pygame.K_RIGHT and main_tank_x+int(tank_width/2)<display_length:
+                    tank_move=5
+                elif event.key==pygame.K_UP:
+                    turret_pos=1
+                elif event.key == pygame.K_DOWN:
+                    turret_pos=-1
+                elif event.key ==pygame.K_p:
+                    pause()
+                    pygame.mixer.music.load("ingame.wav")
+                    pygame.mixer.music.play(-1)
+                elif event.key==pygame.K_SPACE:
+                    enemy_health=gun_fire(starting_fire_coordinates,80,final_turret_pos,fire_power,barrier_x,barrier_y,barrier_width,barrier_height,"self",main_tank_x,enemy_main_tank_x,enemy_health)
+                    
+                    loop=True
+                    while loop:
+                        for event in pygame.event.get():
+                            if event.type==pygame.QUIT:
+                                pygame.quit()
+                                quit()
+                            if event.type==pygame.KEYDOWN:
+                                if event.key==pygame.K_a :
+                                    enemy_tank_move=-5
+                                elif event.key==pygame.K_d:
+                                    enemy_tank_move=5
+                                elif event.key==pygame.K_w:
+                                    enemy_turret_pos=1
+                                elif event.key==pygame.K_s:    
+                                    enemy_turret_pos=-1
+                                elif event.key==pygame.K_j:
+                                    power=1
+                                elif event.key==pygame.K_l:
+                                    power=-1
+                                elif event.key==pygame.K_SPACE:
+                                    player_health=gun_fire(enemy_starting_fire_coordinates,80,enemy_final_turret_pos,fire_power,barrier_x,barrier_y,barrier_width,barrier_height,"PLAYER_2",enemy_main_tank_x,main_tank_x,player_health)
+                                  #  (xy,gun_power,turPos,fire_power,barrier_x,barrier_y,barrier_width,barrier_height,tank,main_tank_x,dest_x,health):
+                                    
+                                    loop=False
+                            if event.type==pygame.KEYUP:
+                                if event.key==pygame.K_a or event.key==pygame.K_d:
+                                    enemy_tank_move=0
+                                elif event.key==pygame.K_w or event.key==pygame.K_s:
+                                    enemy_turret_pos=0
+                                elif event.key==pygame.K_j or event.key==pygame.K_l:
+                                    power=0
+                        fire_power+=power
+                        enemy_main_tank_x+=enemy_tank_move
+                        enemy_final_turret_pos+=enemy_turret_pos
+                        if fire_power>100:
+                            fire_power=100
+                        elif fire_power<0:
+                            fire_power=0
+                        if enemy_final_turret_pos>8:
+                            enemy_final_turret_pos=8
+                        elif enemy_final_turret_pos<0:
+                            enemy_final_turret_pos=0
+                        if enemy_main_tank_x-int(tank_width/2)<0:
+                            enemy_main_tank_x=int(tank_width/2)
+                        gameDisplay.fill(white)
+                        gameDisplay.blit(grass_image,[0,0])
+                        health_bar(player_health,680,25)
+                        health_bar(enemy_health,25,25)
+                        starting_fire_coordinates=tank(main_tank_x,main_tank_y,red,final_turret_pos)
+                        
+                        enemy_starting_fire_coordinates=enemy_tank(enemy_main_tank_x,enemy_main_tank_y,green,enemy_final_turret_pos)
+                        barrier_height=(display_height-barrier_y)
+                        barrier(barrier_x,barrier_y,barrier_width,barrier_height-ground_height,black)
+                                                
+                        message_to_screen("Power ="+str(fire_power),black,-280,small_font)
+                        pygame.display.update()
+                        clock.tick(FPS)
+                       
+            elif event.type==pygame.KEYUP:
+                if event.key==pygame.K_LEFT or event.key==pygame.K_RIGHT:
+                    tank_move=0
+                if event.key==pygame.K_UP or event.key==pygame.K_DOWN:
+                    turret_pos=0
+                if event.key==pygame.K_j or event.key==pygame.K_l:
+                    power=0
+                if event.key==pygame.K_a or event.key==pygame.K_d:
+                    enemy_tank_move=0
+                if event.key==pygame.K_w or event.key==pygame.K_s:
+                    enemy_turret_pos=0
+        if player_health<1:
+            game_over_2("PLAYER 2")
+        elif enemy_health<1:
+            player_win()
+        fire_power+=power
+        if fire_power>100:
+            fire_power=100
+        elif fire_power<0:
+            fire_power=0
+        if final_turret_pos>8:
+            final_turret_pos=8
+        elif final_turret_pos<0:
+            final_turret_pos=0
+        if enemy_final_turret_pos>8:
+            enemy_final_turret_pos=8
+        elif enemy_final_turret_pos<0:
+            enemy_final_turret_pos=0
+        main_tank_x+=tank_move
+        enemy_main_tank_x+=enemy_tank_move
+        gameDisplay.fill(white)
+        gameDisplay.blit(grass_image,[0,0])
+        health_bar(player_health,680,25)
+        health_bar(enemy_health,25,25)
+        if main_tank_x+int(tank_width/2)>display_length:
+            main_tank_x=abs(int(tank_width/2)-display_length)
+        if enemy_main_tank_x-int(tank_width/2)<0:
+            enemy_main_tank_x=int(tank_width/2)
+        
+        starting_fire_coordinates=tank(main_tank_x,main_tank_y,red,final_turret_pos)
+        enemy_starting_fire_coordinates=enemy_tank(enemy_main_tank_x,enemy_main_tank_y,green,enemy_final_turret_pos)
+        barrier_height=(display_height-barrier_y)
+        barrier(barrier_x,barrier_y,barrier_width,barrier_height-ground_height,black)
+        final_turret_pos+=turret_pos
+        enemy_final_turret_pos+=enemy_turret_pos
+        
+        #gameDisplay.fill(green, rect=[0, display_height-ground_height, display_length, ground_height])
+        message_to_screen("Power ="+str(fire_power),black,-280,small_font)
+        pygame.display.update()
+        clock.tick(FPS)
+    pygame.quit()
+    quit()
+    
 game_start_screen()
